@@ -11,8 +11,10 @@ ADK Web + SQLite session history
       knowledge_agent
        |           |
        |           +-- model calls --> Switchyard llm_classifier
-       |                                |-- simple --> GLM-5.2
-       |                                `-- other  --> Gemini 3.6 Flash
+       |                                |-- simple    --> Llama 3.1 8B
+       |                                |-- medium    --> GLM-5.2
+       |                                |-- complex   --> Gemini 3.6 Flash
+       |                                `-- reasoning --> Gemini 3.1 Pro
        |
        +-- search_it_kb --> Vertex AI embedding --> local document index
        +-- get_my_device -------------------------> local demo JSON
@@ -33,19 +35,48 @@ server stores sessions in `.adk/sessions.db`. Continue in the same Web session
 to test a follow-up such as “What asset tag did you find?” This is not
 cross-session semantic memory.
 
-[`config/routes.yaml`](config/routes.yaml) defines one Switchyard
-`llm_classifier` route named `employee-it` (the installed server implements
-this as its deterministic classifier strategy):
+[`scripts/switchyard_server.py`](scripts/switchyard_server.py) defines one
+Switchyard `llm_classifier` route named `employee-it`. It keeps Switchyard's
+packaged structured signal schema and deterministic scoring, adds a short
+IT-specific difficulty rubric, and maps all four abstract tiers to distinct
+models:
 
-- simple requests use `nvidia/zai-org/glm-5.2` on NVIDIA Inference Hub;
-- medium, complex, and reasoning requests use `gemini-3.6-flash` through the
-  Gemini Developer API's OpenAI-compatible endpoint;
-- classifier or provider errors propagate; LiteLLM retries are disabled;
+- simple uses `nvidia/meta/llama-3.1-8b-instruct` on NVIDIA Inference Hub;
+- medium uses `nvidia/zai-org/glm-5.2` on NVIDIA Inference Hub;
+- complex uses `gemini-3.6-flash` through the Gemini Developer API;
+- reasoning uses `gemini-3.1-pro-preview` through the Gemini Developer API;
+- classifier, provider, and context-window errors propagate;
 - session affinity keeps a multi-step tool loop on one selected model.
 
-Switchyard requires a target for a context-window overflow eviction. That is
-the only configured retry path; there is no quota, authentication, or service
-fallback in this prototype.
+The model IDs can be overridden in `.env`; the defaults are documented in
+`.env.example`. Simple and medium overrides remain on the NVIDIA endpoint;
+complex and reasoning overrides remain on the Google endpoint. The classifier
+uses the medium model unless `SWITCHYARD_CLASSIFIER_MODEL` is set. There is no
+quota, authentication, service, or context-window fallback in this prototype.
+
+The classifier emits structured request features. Switchyard then calculates a
+policy tier with its packaged `RouteSignals.policy_tier()` function and applies
+this one-to-one mapping:
+
+```text
+simple -> simple model
+medium -> medium model
+complex -> complex model
+reasoning -> reasoning model
+```
+
+The IT rubric treats one `search_it_kb` lookup as simple, policy plus one
+employee/device lookup as medium, dependent ticket workflows as complex, and
+ambiguous or conflicting policy analysis as reasoning. It evaluates the tools
+needed for the current question rather than escalating just because ADK sends
+all four tool definitions.
+
+A valid abstention or confidence below `0.6` selects the reasoning tier. A
+classifier transport or schema failure stops the request because fail-open is
+disabled.
+
+This custom profile uses Switchyard's internal Python composition API, which is
+why `nemo-switchyard==0.2.0` is pinned in `pyproject.toml`.
 
 ## Data
 
@@ -83,6 +114,7 @@ cp .env.example .env  # only when .env does not already exist
 
 make setup
 make embed             # only needed to create or rebuild the document index
+make test              # offline router construction and mapping tests
 ```
 
 Start the two local processes in separate terminals:
@@ -103,8 +135,10 @@ Gemini's tool signature across a multi-step call.
 ## Demo questions
 
 Use a fresh ADK session for each independent difficulty example. Switchyard
-pins the first model selected for a session so all calls in that tool loop stay
-on the same provider.
+derives an affinity key from the stable system/developer content and first user
+message, then pins the first confident selection in an in-process cache. This
+keeps one tool loop on the same provider, but the pin is not the ADK session ID
+and is cleared when Switchyard restarts.
 
 ### Simple: policy only
 
@@ -141,4 +175,11 @@ Switchyard's routing counters are available while it runs:
 curl -s http://127.0.0.1:4000/v1/stats | python3 -m json.tool
 ```
 
+Request, token, tier, and latency counters are usable. Switchyard 0.2's bundled
+pricing table has no entries for these exact model IDs, so its cost estimate is
+`$0`; do not use that field for the savings comparison until a dated local
+price calculation is added.
+
 The actual tool order is chosen by the model and is visible in the ADK trace.
+The Switchyard terminal also prints a `classifier_signals=...` JSON line for
+each newly classified session, including the calculated `policy_tier`.
