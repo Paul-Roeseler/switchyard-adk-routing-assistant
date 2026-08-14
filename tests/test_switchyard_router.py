@@ -26,11 +26,11 @@ from switchyard.lib.backends.deterministic_routing_llm_backend import (
 from switchyard.lib.proxy_context import ProxyContext
 from switchyard_rust.core import ChatRequest, ChatRequestType
 
-from scripts.switchyard_server import create_app
+from switchyard_router import create_app
 
 
-class SwitchyardServerTests(unittest.TestCase):
-    def test_each_policy_tier_maps_to_a_distinct_backend(self) -> None:
+class SwitchyardRouterTests(unittest.TestCase):
+    def test_each_policy_tier_selects_its_matching_target(self) -> None:
         for tier in RouteTier:
             with self.subTest(tier=tier.value):
                 recommended_tier = (

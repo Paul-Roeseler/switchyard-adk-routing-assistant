@@ -3,7 +3,7 @@ import os
 from google.adk import Agent
 from google.adk.models.lite_llm import LiteLlm
 
-from it_assistant import (
+from .tools import (
     draft_it_request,
     get_my_device,
     get_my_open_tickets,

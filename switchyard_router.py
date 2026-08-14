@@ -1,7 +1,6 @@
 import os
 from typing import Any
 
-import uvicorn
 from switchyard import (
     BackendFormat,
     LlmTarget,
@@ -113,15 +112,3 @@ def create_app():
         default=True,
     )
     return build_switchyard_app(routes)
-
-
-def main() -> None:
-    uvicorn.run(
-        create_app(),
-        host="127.0.0.1",
-        port=4000,
-    )
-
-
-if __name__ == "__main__":
-    main()

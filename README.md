@@ -1,14 +1,15 @@
 # Switchyard ADK routing assistant
 
-This is a small Google ADK agent for one fictional employee. It answers IT
-policy questions, combines policy with current device and ticket data, and can
-prepare a support-request draft through a multi-step tool loop.
+A small Google ADK employee IT assistant that demonstrates cost-aware model
+routing with NVIDIA NeMo Switchyard. It answers policy questions, combines
+policy with current device and ticket data, and can prepare a support-request
+draft through a multi-step tool loop.
 
 ```text
 ADK Web + SQLite session history
              |
              v
-      knowledge_agent
+    employee_it_agent
        |           |
        |           +-- model calls --> Switchyard llm_classifier
        |                                |-- simple    --> Llama 3.1 8B
@@ -22,79 +23,10 @@ ADK Web + SQLite session history
        `-- draft_it_request ----------------------> preview only
 ```
 
-## What is implemented
+## Quick start
 
-The ADK root agent is in [`knowledge_agent/agent.py`](knowledge_agent/agent.py).
-It is intentionally just an instruction, one routed model, and four Python
-tools. ADK owns the agent loop: after each tool result, the model can make the
-next dependent tool call or produce the final answer.
-
-Conversation memory is ADK session history. `include_contents="default"`
-includes prior messages and tool results on later turns, while the development
-server stores sessions in `.adk/sessions.db`. Continue in the same Web session
-to test a follow-up such as “What asset tag did you find?” This is not
-cross-session semantic memory.
-
-[`scripts/switchyard_server.py`](scripts/switchyard_server.py) defines one
-Switchyard `llm_classifier` route named `employee-it`. It keeps Switchyard's
-packaged prompt, structured signal schema, and deterministic scoring, then maps
-all four abstract tiers to distinct models:
-
-- simple uses `nvidia/meta/llama-3.1-8b-instruct` on NVIDIA Inference Hub;
-- medium uses `nvidia/zai-org/glm-5.2` on NVIDIA Inference Hub;
-- complex uses `gemini-3.6-flash` through the Gemini Developer API;
-- reasoning uses `gemini-3.1-pro-preview` through the Gemini Developer API;
-- classifier, provider, and context-window errors propagate;
-- session affinity keeps a multi-step tool loop on one selected model.
-
-The four model IDs are fixed in `scripts/switchyard_server.py` so the demo has
-one easy-to-read configuration. The classifier uses the medium model. There is
-no quota, authentication, service, or context-window fallback in this
-prototype.
-
-The classifier emits structured request features. Switchyard then calculates a
-policy tier with its packaged `RouteSignals.policy_tier()` function and applies
-this one-to-one mapping:
-
-```text
-simple -> simple model
-medium -> medium model
-complex -> complex model
-reasoning -> reasoning model
-```
-
-A valid abstention or confidence below `0.6` selects the reasoning tier. A
-classifier transport or schema failure stops the request because fail-open is
-disabled.
-
-This custom profile uses Switchyard's internal Python composition API, which is
-why `nemo-switchyard==0.2.0` is pinned in `pyproject.toml`.
-
-## Data
-
-The knowledge base contains two unmodified documents from NVIDIA's Build an
-Agent workshop:
-
-- `hardware-refresh.md`
-- `help-and-support.md`
-
-They are pinned to revision
-`ac389a0ce6452d4b69af73f75806543fdc652b95`. See
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for attribution and license
-details.
-
-[`data/employee_it.json`](data/employee_it.json) contains one fictional
-employee, one failed laptop, and one unrelated open software ticket. It is not
-NVIDIA or customer data.
-
-The two documents are split into 17 sections and embedded with Vertex AI
-`gemini-embedding-2` at 768 dimensions. The generated local index is
-`data/embeddings.json`.
-
-## Setup
-
-Vertex embeddings use Application Default Credentials. Generation uses the two
-API keys in `.env`.
+Vertex embeddings use Application Default Credentials. Model generation uses
+the Google and NVIDIA API keys in `.env`.
 
 ```bash
 gcloud config set project YOUR_GCP_PROJECT_ID
@@ -105,8 +37,8 @@ cp .env.example .env  # only when .env does not already exist
 # Add GOOGLE_API and INFERENCE_HUB_API to .env.
 
 make setup
-make embed             # only needed to create or rebuild the document index
-make test              # offline router construction and mapping tests
+make embed             # create or rebuild the local document index
+make test              # run offline router tests
 ```
 
 Start the two local processes in separate terminals:
@@ -119,18 +51,16 @@ make switchyard
 make chat
 ```
 
-Then open `http://127.0.0.1:8000` and select `knowledge_agent`. Both servers bind
+Open `http://127.0.0.1:8000` and select `employee_it_agent`. Both servers bind
 to localhost and are development-only. Leave ADK Web's optional streaming
-toggle off (the default); the current streaming reconstruction does not retain
-Gemini's tool signature across a multi-step call.
+toggle off; its current stream reconstruction does not retain Gemini tool
+signatures across multi-step calls.
 
 ## Demo questions
 
-Use a fresh ADK session for each independent difficulty example. Switchyard
-derives an affinity key from the stable system/developer content and first user
-message, then pins the first confident selection in an in-process cache. This
-keeps one tool loop on the same provider, but the pin is not the ADK session ID
-and is cleared when Switchyard restarts.
+Use a fresh ADK session for each difficulty example. Switchyard keeps every
+model call within one multi-step conversation on the model selected for its
+first request.
 
 ### Simple: policy only
 
@@ -155,23 +85,84 @@ demonstrate conversational memory.
 > assign the correct priority, and draft the request without creating a
 > duplicate.
 
-Expected path: `get_my_device` -> `search_it_kb` ->
+Expected tool path: `get_my_device` -> `search_it_kb` ->
 `get_my_open_tickets` -> `draft_it_request`.
 
 The grounded result should be a P2 Hardware Incident. The existing Software
 ticket is unrelated, and the draft tool returns `submitted: false`.
 
-Switchyard's routing counters are available while it runs:
+## Agent and tools
+
+[`employee_it_agent/agent.py`](employee_it_agent/agent.py) defines one ADK
+agent with four Python tools from
+[`employee_it_agent/tools.py`](employee_it_agent/tools.py). ADK owns the agent
+loop, so the selected model can make dependent tool calls before answering.
+
+Conversation memory is ADK session history. `include_contents="default"`
+includes previous messages and tool results, and the development server stores
+sessions in `.adk/sessions.db`. This is not cross-session semantic memory.
+
+## Switchyard routing
+
+[`switchyard_router.py`](switchyard_router.py) is the standalone
+OpenAI-compatible model gateway used by the ADK agent. It exposes one route,
+`employee-it`, and maps Switchyard's four policy tiers to distinct models:
+
+- simple: `nvidia/meta/llama-3.1-8b-instruct`;
+- medium: `nvidia/zai-org/glm-5.2`;
+- complex: `gemini-3.6-flash`;
+- reasoning: `gemini-3.1-pro-preview`.
+
+The classifier uses the medium model and Switchyard's packaged prompt,
+structured signals, and `RouteSignals.policy_tier()` scoring. A valid
+abstention or confidence below `0.6` selects the reasoning tier. Classifier,
+provider, and context-window failures propagate; this prototype has no hidden
+fallback.
+
+Session affinity derives a key from the stable system/developer content and
+first user message. It pins the first confident tier for the conversation and
+is cleared when Switchyard restarts. It does not use the ADK session ID.
+
+The four-model profile uses Switchyard's internal Python composition API,
+which is why `nemo-switchyard==0.2.0` is pinned in `pyproject.toml`.
+
+## Data and licensing
+
+The knowledge base contains two documents from NVIDIA's Build an Agent
+workshop under
+[`data/knowledge_base/nvidia-build-an-agent`](data/knowledge_base/nvidia-build-an-agent):
+
+- `hardware-refresh.md`;
+- `help-and-support.md`.
+
+They are pinned to revision
+`ac389a0ce6452d4b69af73f75806543fdc652b95`. Their Apache license is stored
+beside them, and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) records the
+source and attribution.
+
+[`data/employee_it.json`](data/employee_it.json) contains one fictional
+employee, one failed laptop, and one unrelated open software ticket. It is not
+NVIDIA or customer data.
+
+[`scripts/build_index.py`](scripts/build_index.py) splits the two documents
+into 17 sections and embeds them with Vertex AI `gemini-embedding-2` at 768
+dimensions. The generated `data/embeddings.json` index is intentionally
+gitignored.
+
+The original demo code is licensed under Apache-2.0; see [`LICENSE`](LICENSE).
+
+## Inspect routing
+
+Switchyard exposes request, token, tier, and latency counters:
 
 ```bash
 curl -s http://127.0.0.1:4000/v1/stats | python3 -m json.tool
 ```
 
-Request, token, tier, and latency counters are usable. Switchyard 0.2's bundled
-pricing table has no entries for these exact model IDs, so its cost estimate is
-`$0`; do not use that field for the savings comparison until a dated local
+Its bundled pricing table does not contain these exact model IDs, so the cost
+estimate is `$0`; do not use that field for a savings comparison until a dated
 price calculation is added.
 
-The actual tool order is chosen by the model and is visible in the ADK trace.
-The Switchyard terminal also prints a `classifier_signals=...` JSON line for
-each newly classified session, including the calculated `policy_tier`.
+The actual tool order is visible in the ADK trace. The Switchyard terminal also
+prints a `classifier_signals=...` JSON line for each newly classified
+conversation, including the calculated policy tier.

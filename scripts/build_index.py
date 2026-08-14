@@ -11,7 +11,7 @@ from google.genai import types
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_DIR = ROOT / "third_party" / "nvidia-build-an-agent"
+SOURCE_DIR = ROOT / "data" / "knowledge_base" / "nvidia-build-an-agent"
 OUTPUT_PATH = ROOT / "data" / "embeddings.json"
 DOCUMENT_NAMES = ("hardware-refresh.md", "help-and-support.md")
 SOURCE_REPOSITORY = "https://github.com/brevdev/workshop-build-an-agent"
