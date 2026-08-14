@@ -12,10 +12,8 @@ ADK Web + SQLite session history
     employee_it_agent
        |           |
        |           +-- model calls --> Switchyard llm_classifier
-       |                                |-- simple    --> Llama 3.1 8B
-       |                                |-- medium    --> GLM-5.2
-       |                                |-- complex   --> Gemini 3.6 Flash
-       |                                `-- reasoning --> Gemini 3.1 Pro
+       |                                |-- simple  --> Gemini 3.6 Flash
+       |                                `-- complex --> GLM-5.2
        |
        +-- search_it_kb --> Vertex AI embedding --> local document index
        +-- get_my_device -------------------------> local demo JSON
@@ -38,7 +36,7 @@ cp .env.example .env  # only when .env does not already exist
 
 make setup
 make embed             # create or rebuild the local document index
-make test              # run offline router tests
+make test              # run offline configuration tests
 ```
 
 Start the two local processes in separate terminals:
@@ -104,27 +102,27 @@ sessions in `.adk/sessions.db`. This is not cross-session semantic memory.
 
 ## Switchyard routing
 
-[`switchyard_router.py`](switchyard_router.py) is the standalone
-OpenAI-compatible model gateway used by the ADK agent. It exposes one route,
-`employee-it`, and maps Switchyard's four policy tiers to distinct models:
+[`switchyard.yaml`](switchyard.yaml) configures Switchyard's stock
+`llm_classifier` route. There is no custom router implementation:
 
-- simple: `nvidia/meta/llama-3.1-8b-instruct`;
-- medium: `nvidia/zai-org/glm-5.2`;
-- complex: `gemini-3.6-flash`;
-- reasoning: `gemini-3.1-pro-preview`.
+- weak/simple target: `gemini-3.6-flash`;
+- strong/complex target: `nvidia/zai-org/glm-5.2`.
 
-The classifier uses the medium model and Switchyard's packaged prompt,
-structured signals, and `RouteSignals.policy_tier()` scoring. A valid
-abstention or confidence below `0.6` selects the reasoning tier. Classifier,
-provider, and context-window failures propagate; this prototype has no hidden
-fallback.
+GLM-5.2 is reused as the classifier, so the route uses only two unique model
+IDs. Switchyard's packaged `general` profile sends SIMPLE requests to the weak
+target and MEDIUM, COMPLEX, and REASONING requests to the strong target. A
+valid abstention or a classification below the default confidence threshold
+also selects the strong target. Classifier and provider failures propagate
+because `fail_open` is disabled.
 
-Session affinity derives a key from the stable system/developer content and
-first user message. It pins the first confident tier for the conversation and
-is cleared when Switchyard restarts. It does not use the ADK session ID.
+Session affinity pins the first confident selection for the conversation and
+is cleared when Switchyard restarts. Therefore every model call in one ADK
+tool loop stays on the same generation model.
 
-The four-model profile uses Switchyard's internal Python composition API,
-which is why `nemo-switchyard==0.2.0` is pinned in `pyproject.toml`.
+The required `fallback_target_on_evict` setting only applies to target
+eviction, such as a context-window overflow; it does not hide ordinary
+provider errors. This branch uses Switchyard's standard YAML launcher and pins
+`nemo-switchyard==0.2.0` so its configuration schema remains reproducible.
 
 ## Data and licensing
 
@@ -159,9 +157,10 @@ Switchyard exposes request, token, tier, and latency counters:
 curl -s http://127.0.0.1:4000/v1/stats | python3 -m json.tool
 ```
 
-Its bundled pricing table does not contain these exact model IDs, so the cost
-estimate is `$0`; do not use that field for a savings comparison until a dated
-price calculation is added.
+GLM-5.2 appears in the classifier bucket for every newly classified session.
+The generation model appears under the weak or strong tier. Switchyard's
+bundled pricing table does not contain these exact model IDs, so its cost
+estimate is `$0` until a dated price calculation is added.
 
 The actual tool order is visible in the ADK trace. The Switchyard terminal also
 prints a `classifier_signals=...` JSON line for each newly classified

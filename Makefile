@@ -7,7 +7,7 @@ embed:
 	uv run --env-file .env python scripts/build_index.py
 
 switchyard:
-	uv run --env-file .env uvicorn switchyard_router:create_app --factory --host 127.0.0.1 --port 4000
+	uv run --env-file .env switchyard serve --routing-profiles switchyard.yaml --host 127.0.0.1 --port 4000
 
 chat:
 	mkdir -p .adk

@@ -1,0 +1,25 @@
+defaults:
+  format: openai
+
+routes:
+  employee-it:
+    type: llm_classifier
+    profile: general
+    session_affinity: true
+    fallback_target_on_evict: strong
+
+    classifier:
+      model: nvidia/zai-org/glm-5.2
+      api_key: ${INFERENCE_HUB_API}
+      base_url: https://inference-api.nvidia.com/v1
+      fail_open: false
+
+    weak:
+      model: gemini-3.6-flash
+      api_key: ${GOOGLE_API}
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai
+
+    strong:
+      model: nvidia/zai-org/glm-5.2
+      api_key: ${INFERENCE_HUB_API}
+      base_url: https://inference-api.nvidia.com/v1
