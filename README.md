@@ -37,9 +37,8 @@ cross-session semantic memory.
 
 [`scripts/switchyard_server.py`](scripts/switchyard_server.py) defines one
 Switchyard `llm_classifier` route named `employee-it`. It keeps Switchyard's
-packaged structured signal schema and deterministic scoring, adds a short
-IT-specific difficulty rubric, and maps all four abstract tiers to distinct
-models:
+packaged prompt, structured signal schema, and deterministic scoring, then maps
+all four abstract tiers to distinct models:
 
 - simple uses `nvidia/meta/llama-3.1-8b-instruct` on NVIDIA Inference Hub;
 - medium uses `nvidia/zai-org/glm-5.2` on NVIDIA Inference Hub;
@@ -48,11 +47,10 @@ models:
 - classifier, provider, and context-window errors propagate;
 - session affinity keeps a multi-step tool loop on one selected model.
 
-The model IDs can be overridden in `.env`; the defaults are documented in
-`.env.example`. Simple and medium overrides remain on the NVIDIA endpoint;
-complex and reasoning overrides remain on the Google endpoint. The classifier
-uses the medium model unless `SWITCHYARD_CLASSIFIER_MODEL` is set. There is no
-quota, authentication, service, or context-window fallback in this prototype.
+The four model IDs are fixed in `scripts/switchyard_server.py` so the demo has
+one easy-to-read configuration. The classifier uses the medium model. There is
+no quota, authentication, service, or context-window fallback in this
+prototype.
 
 The classifier emits structured request features. Switchyard then calculates a
 policy tier with its packaged `RouteSignals.policy_tier()` function and applies
@@ -64,12 +62,6 @@ medium -> medium model
 complex -> complex model
 reasoning -> reasoning model
 ```
-
-The IT rubric treats one `search_it_kb` lookup as simple, policy plus one
-employee/device lookup as medium, dependent ticket workflows as complex, and
-ambiguous or conflicting policy analysis as reasoning. It evaluates the tools
-needed for the current question rather than escalating just because ADK sends
-all four tool definitions.
 
 A valid abstention or confidence below `0.6` selects the reasoning tier. A
 classifier transport or schema failure stops the request because fail-open is

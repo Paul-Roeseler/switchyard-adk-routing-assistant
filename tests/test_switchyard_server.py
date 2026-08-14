@@ -26,7 +26,7 @@ from switchyard.lib.backends.deterministic_routing_llm_backend import (
 from switchyard.lib.proxy_context import ProxyContext
 from switchyard_rust.core import ChatRequest, ChatRequestType
 
-from scripts.switchyard_server import TIER_MAPPING, create_app
+from scripts.switchyard_server import create_app
 
 
 class SwitchyardServerTests(unittest.TestCase):
@@ -47,7 +47,6 @@ class SwitchyardServerTests(unittest.TestCase):
                 )
                 selector = SignalTierSelectorRequestProcessor(
                     SignalTierSelectorConfig(
-                        tier_mapping=TIER_MAPPING,
                         default_tier="reasoning",
                         min_confidence=0.6,
                     )
@@ -68,7 +67,6 @@ class SwitchyardServerTests(unittest.TestCase):
         ctx = ProxyContext(metadata={CTX_DETERMINISTIC_ROUTE_SIGNALS: signals})
         selector = SignalTierSelectorRequestProcessor(
             SignalTierSelectorConfig(
-                tier_mapping=TIER_MAPPING,
                 default_tier="reasoning",
                 min_confidence=0.6,
             )
