@@ -1,4 +1,4 @@
-# Employee IT assistant prototype
+# Switchyard ADK routing assistant
 
 This is a small Google ADK agent for one fictional employee. It answers IT
 policy questions, combines policy with current device and ticket data, and can
@@ -93,7 +93,7 @@ details.
 
 [`data/employee_it.json`](data/employee_it.json) contains one fictional
 employee, one failed laptop, and one unrelated open software ticket. It is not
-NVIDIA or L'Oréal data.
+NVIDIA or customer data.
 
 The two documents are split into 17 sections and embedded with Vertex AI
 `gemini-embedding-2` at 768 dimensions. The generated local index is
@@ -105,9 +105,9 @@ Vertex embeddings use Application Default Credentials. Generation uses the two
 API keys in `.env`.
 
 ```bash
-gcloud config set project model-routing-505414
+gcloud config set project YOUR_GCP_PROJECT_ID
 gcloud auth application-default login
-gcloud auth application-default set-quota-project model-routing-505414
+gcloud auth application-default set-quota-project YOUR_GCP_PROJECT_ID
 
 cp .env.example .env  # only when .env does not already exist
 # Add GOOGLE_API and INFERENCE_HUB_API to .env.

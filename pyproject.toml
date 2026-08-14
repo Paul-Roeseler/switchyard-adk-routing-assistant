@@ -1,5 +1,5 @@
 [project]
-name = "gcp-first-switchyard-demo"
+name = "switchyard-adk-routing-assistant"
 version = "0.1.0"
 description = "Minimal Google ADK employee IT assistant routed by NeMo Switchyard"
 requires-python = ">=3.12,<3.14"
