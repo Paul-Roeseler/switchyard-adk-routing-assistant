@@ -1,0 +1,34 @@
+defaults:
+  format: openai
+
+routes:
+  employee-it:
+    type: llm_classifier
+    profile: general
+    session_affinity: true
+    affinity_warmup_turns: 0
+    fallback_target_on_evict: strong
+    enable_stats: true
+
+    classifier:
+      model: nvidia/zai-org/glm-5.2
+      api_key: ${INFERENCE_HUB_API}
+      base_url: https://inference-api.nvidia.com/v1
+      timeout_secs: 30
+      min_confidence: 0.6
+      fail_open: false
+      recent_turn_window: 4
+
+    strong:
+      id: strong
+      model: gemini-3.6-flash
+      api_key: ${GOOGLE_API}
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai
+      format: openai
+
+    weak:
+      id: weak
+      model: nvidia/zai-org/glm-5.2
+      api_key: ${INFERENCE_HUB_API}
+      base_url: https://inference-api.nvidia.com/v1
+      format: openai
