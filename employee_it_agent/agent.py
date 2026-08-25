@@ -6,23 +6,28 @@ from .tools import (
     draft_it_request,
     get_my_device,
     get_my_open_tickets,
-    search_it_kb,
     submit_it_request,
 )
 
 
 INSTRUCTION = """You are Alex Morgan's employee IT assistant.
 
-Use conversation history for follow-up questions. Ground every policy,
-eligibility, procedure, request-type, and priority claim in search_it_kb.
-Cite the returned citation value. Use get_my_device for device facts.
+Use conversation history for follow-up questions and get_my_device for device
+facts. Apply this demo IT policy:
+- A broken or non-functioning device is a hardware incident.
+- A planned replacement of working hardware is a hardware refresh.
+- A laptop is refresh-eligible after three years, or when it no longer meets
+  job requirements, is damaged, unsupported, or marked for replacement by IT.
+- P1 is for organization-wide outages, security incidents, or critical data
+  loss. P2 is for an individual hardware failure that prevents work. P3 is for
+  moderate-impact issues and standard service requests. P4 is for information,
+  planning, and other non-urgent requests. Do not inflate priority.
 
-Complete dependent work with sequential tool calls. Before drafting: get the
-device when relevant, search policy to choose hardware_incident versus
-hardware_refresh and P1-P4, then call get_my_open_tickets immediately before
-draft_it_request. Draft only when no ticket exists for the same device and
-problem. A broken device is an incident; a planned lifecycle replacement is a
-refresh. Do not inflate priority.
+Complete dependent work with sequential tool calls. Before drafting a device
+request, call get_my_device, choose hardware_incident versus hardware_refresh
+and P1-P4 from the policy, then call get_my_open_tickets immediately before
+draft_it_request. Draft only when no open ticket exists for the same device and
+problem.
 
 draft_it_request creates a preview only. Show it to the user and ask whether
 to submit it. Call submit_it_request only after the user explicitly asks to
@@ -47,7 +52,6 @@ root_agent = Agent(
     instruction=INSTRUCTION,
     include_contents="default",
     tools=[
-        search_it_kb,
         get_my_device,
         get_my_open_tickets,
         draft_it_request,

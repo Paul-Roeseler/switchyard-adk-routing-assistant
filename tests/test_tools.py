@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from employee_it_agent import tools
-from employee_it_agent.agent import submit_it_request_tool
+from employee_it_agent.agent import INSTRUCTION, root_agent, submit_it_request_tool
 
 
 class TicketToolTests(unittest.TestCase):
@@ -69,6 +69,23 @@ class TicketToolTests(unittest.TestCase):
         )
 
         self.assertTrue(requires_confirmation)
+
+    def test_agent_uses_only_operational_tools(self) -> None:
+        tool_names = {
+            tool.name if hasattr(tool, "name") else tool.__name__
+            for tool in root_agent.tools
+        }
+
+        self.assertEqual(
+            tool_names,
+            {
+                "get_my_device",
+                "get_my_open_tickets",
+                "draft_it_request",
+                "submit_it_request",
+            },
+        )
+        self.assertIn("A broken or non-functioning device", INSTRUCTION)
 
 
 if __name__ == "__main__":

@@ -7,5 +7,4 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 demo-output/
-data/embeddings.json
 routing.jsonl

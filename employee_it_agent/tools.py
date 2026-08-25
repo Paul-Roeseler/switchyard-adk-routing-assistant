@@ -1,16 +1,11 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import date
 from pathlib import Path
 
-from google import genai
-from google.genai import types
-
 
 ROOT = Path(__file__).resolve().parents[1]
-INDEX_PATH = ROOT / "data" / "embeddings.json"
 SEED_STATE_PATH = ROOT / "data" / "employee_it.json"
 RUNTIME_STATE_PATH = ROOT / ".adk" / "employee_it.json"
 
@@ -60,64 +55,6 @@ def _build_request(
         "business_impact": business_impact,
         "priority": priority,
         "asset_tag": state["device"]["asset_tag"],
-    }
-
-
-def search_it_kb(query: str) -> dict:
-    """Search the IT knowledge base and return the three most relevant sections.
-
-    Use this for refresh eligibility, procedures, priorities, and support rules.
-    It does not return employee-specific operational data.
-
-    Args:
-        query: The employee's policy or support question.
-    """
-    index = _read_json(INDEX_PATH)
-    embedding_config = index["embedding"]
-    client = genai.Client(
-        vertexai=True,
-        project=os.environ["GOOGLE_CLOUD_PROJECT"],
-        location=embedding_config["location"],
-        http_options=types.HttpOptions(api_version="v1"),
-    )
-    response = client.models.embed_content(
-        model=embedding_config["model"],
-        contents=embedding_config["query_input"].format(query=query),
-        config=types.EmbedContentConfig(
-            output_dimensionality=embedding_config["dimensions"],
-            auto_truncate=False,
-        ),
-    )
-    if not response.embeddings or response.embeddings[0].values is None:
-        raise RuntimeError("Vertex AI returned no query embedding")
-    query_embedding = response.embeddings[0].values
-
-    scored_chunks = [
-        (
-            sum(
-                left * right
-                for left, right in zip(
-                    query_embedding, chunk["embedding"], strict=True
-                )
-            ),
-            chunk,
-        )
-        for chunk in index["chunks"]
-    ]
-    ranked = sorted(scored_chunks, key=lambda item: item[0], reverse=True)[:3]
-    return {
-        "matches": [
-            {
-                "score": round(float(score), 6),
-                "id": chunk["id"],
-                "title": chunk["document_title"],
-                "citation": f"{Path(chunk['source']).name} - {chunk['section']}",
-                "source": chunk["source"],
-                "section": chunk["section"],
-                "text": chunk["text"],
-            }
-            for score, chunk in ranked
-        ]
     }
 
 
