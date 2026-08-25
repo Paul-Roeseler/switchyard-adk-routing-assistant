@@ -1,20 +1,23 @@
-# Switchyard ADK routing assistant
+# Switchyard ADK Routing Assistant
 
-A minimal Google ADK employee IT assistant that demonstrates cost-aware model
-routing with NVIDIA NeMo Switchyard. Simple requests use a lower-cost model;
-complex requests use a stronger model and can complete a confirmed multi-step
-ticket workflow.
+[![CI](https://github.com/Paul-Roeseler/switchyard-adk-routing-assistant/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Paul-Roeseler/switchyard-adk-routing-assistant/actions/workflows/ci.yml)
+[![Python 3.12–3.13](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
+A minimal Google ADK assistant that uses NVIDIA NeMo Switchyard to route simple requests to economical models and complex, tool-driven work to stronger models across configurable inference endpoints.
+
+## Architecture
 
 ```text
-ADK Web + SQLite conversation history
+ADK Web + SQLite session history
               |
               v
      employee_it_agent
         |           |
-        |           `-- model calls --> Switchyard llm_classifier
-        |                                |-- classifier --> Gemini 3.6 Flash
-        |                                |-- simple -----> GLM-5.2
-        |                                `-- complex ----> Gemini 3.1 Pro
+        |           `-- model calls --> NeMo Switchyard llm_classifier
+        |                                |-- classifier endpoint
+        |                                |-- SIMPLE ------> weak endpoint
+        |                                `-- MEDIUM+ -----> strong endpoint
         |
         +-- get_my_device -------------------------> local demo JSON
         +-- get_my_open_tickets -------------------> local demo JSON
@@ -22,30 +25,76 @@ ADK Web + SQLite conversation history
         `-- submit_it_request --> ADK confirmation --> local ticket store
 ```
 
-The few IT rules required by the demo are written directly in the agent
-instruction. There is no RAG pipeline, embedding model, vector database, or
-custom routing implementation.
+Google ADK owns the agent, tool loop, confirmation, and conversation history.
+Switchyard owns request classification and outbound model selection. The agent
+always calls the same local route, so changing providers does not change the
+agent or its tools.
 
-## Quick start
+## Setup
 
-Create `.env` and add the two provider credentials and your Google Cloud
-project:
+Requirements: Python 3.12 or 3.13, [`uv`](https://docs.astral.sh/uv/), and
+credentials for the inference endpoints you select.
+
+### 1. Configure Switchyard
+
+Edit [`switchyard.yaml`](switchyard.yaml) and configure its three model roles:
+
+| Role | Purpose |
+| --- | --- |
+| `classifier` | Classify request complexity |
+| `weak` | Handle `SIMPLE` requests |
+| `strong` | Handle all other requests |
+
+Each role selects its endpoint with the same core fields:
+
+```yaml
+weak:
+  model: economical-model
+  base_url: https://provider.example.com/v1
+  api_key: ${PROVIDER_API_KEY}
+  format: openai  # optional target-level override
+```
+
+The stock `general` profile sends `MEDIUM`, `COMPLEX`, `REASONING`,
+low-confidence, and abstained classifications to `strong`. Set `format`
+globally or per generation target to `openai`, `responses`, `anthropic`, or
+`auto`; generation models must support this agent's tool calls.
+
+The classifier must accept OpenAI Chat Completions with strict JSON-schema
+output. Keep the route name `employee-it` unless you also change
+`model="openai/employee-it"` in
+[`employee_it_agent/agent.py`](employee_it_agent/agent.py).
+
+The checked-in Gemini Flash, GLM-5.2, and Gemini Pro endpoints are one example;
+replace any or all three role blocks to use other providers.
+
+### 2. Configure credentials
+
+Copy the environment template:
 
 ```bash
 cp .env.example .env
-gcloud auth application-default login
-gcloud auth application-default print-access-token
 ```
 
-Paste the generated token and your other values into `.env`:
+Every `${VARIABLE}` referenced by `switchyard.yaml` must have a non-empty value
+in `.env`. The variable names are yours to choose, and one credential can be
+shared by multiple roles. Do not put secrets directly in the tracked YAML.
+
+The checked-in configuration expects:
 
 ```dotenv
-VERTEX_ACCESS_TOKEN=your-short-lived-token
 INFERENCE_HUB_API=your-nvidia-key
+VERTEX_ACCESS_TOKEN=your-short-lived-google-token
 GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 ```
 
-Then install and test the demo:
+These Google Cloud values are required only by the checked-in Vertex strong
+target. If you replace that block, replace its `${...}` references and the
+corresponding `.env` entries. For the current Vertex target, generate the token
+with `gcloud auth application-default print-access-token` and restart
+Switchyard after refreshing it.
+
+### 3. Install and run
 
 ```bash
 make setup
@@ -63,82 +112,14 @@ make chat
 ```
 
 Open `http://127.0.0.1:8000` and select `employee_it_agent`. Both servers bind
-to localhost and are development-only. Leave ADK Web's optional streaming
-toggle off; its current stream reconstruction does not retain Gemini tool
-signatures across multi-step calls.
+to localhost and are intended for local demonstration only.
 
-`VERTEX_ACCESS_TOKEN` normally expires after one hour. Generate a new value,
-update `.env`, and restart Switchyard when it expires.
+## Demo
 
-## Run the demo
+[`DEMO.md`](DEMO.md) contains the tested presenter workflow, example prompts,
+expected routes, tool calls, and confirmation step.
 
-See [`DEMO.md`](DEMO.md) for the tested presenter workflow, exact questions,
-expected model routes, tool calls, confirmation step, and reset instructions.
-
-## Agent and tools
-
-[`employee_it_agent/agent.py`](employee_it_agent/agent.py) defines one ADK
-agent and its small IT policy. It has four Python tools from
-[`employee_it_agent/tools.py`](employee_it_agent/tools.py):
-
-- `get_my_device` reads the current employee's device;
-- `get_my_open_tickets` checks unresolved requests;
-- `draft_it_request` prepares a side-effect-free preview;
-- `submit_it_request` writes the approved ticket to the local demo store.
-
-ADK owns the multi-step tool loop. The submission tool uses ADK's native
-`require_confirmation` control, so approval is enforced by ADK rather than by
-the selected model's prompt alone.
-
-Conversation memory is ADK session history. `include_contents="default"`
-includes previous messages and tool results, and the development server stores
-sessions in `.adk/sessions.db`. This is not cross-session semantic memory.
-
-The agent calls the fixed local endpoint `http://127.0.0.1:4000/v1`.
-`switchyard.yaml` only describes Switchyard's outbound provider connections.
-
-## Switchyard routing
-
-[`switchyard.yaml`](switchyard.yaml) uses Switchyard's stock `llm_classifier`
-route:
-
-- classifier: `gcp/google/gemini-3.6-flash` through NVIDIA Inference Hub;
-- weak/simple target: `nvidia/zai-org/glm-5.2` through Inference Hub;
-- strong target: `google/gemini-3.1-pro-preview` through Google Cloud Vertex AI.
-
-The packaged `general` profile sends SIMPLE requests to the weak target and
-MEDIUM, COMPLEX, and REASONING requests to the strong target. A valid
-abstention or a result below the confidence threshold also selects the strong
-target. Provider failures propagate because `fail_open` is disabled.
-
-Session affinity keeps every model call in one ADK tool loop on the model
-selected for its first request. Restarting Switchyard clears that affinity.
-
-The YAML contains a commented Claude Opus replacement for the strong target.
-To demonstrate a provider change, comment the Gemini Pro block, uncomment the
-Opus block, and restart Switchyard.
-
-## Credentials and portability
-
-| Purpose | Credential |
-| --- | --- |
-| Classifier, GLM-5.2, optional Claude Opus | `INFERENCE_HUB_API` |
-| Gemini 3.1 Pro | `VERTEX_ACCESS_TOKEN` plus `GOOGLE_CLOUD_PROJECT` |
-
-Changing a generation provider only requires editing the model, base URL, and
-key in `switchyard.yaml`; the ADK agent and tools stay unchanged. Replacement
-models must support the OpenAI-compatible message and tool-call format. The
-classifier must also support Switchyard's structured classification request.
-
-The two local servers have no inbound authentication and must not be exposed
-directly to a network. A deployed version should use workload identity or a
-token-refreshing gateway instead of the manually refreshed Vertex token.
-
-## Demo data
-
-[`data/employee_it.json`](data/employee_it.json) contains one fictional
-employee, one failed laptop, and one unrelated open software ticket. It is not
-NVIDIA or customer data. Submitted tickets are written to the ignored runtime
-copy `.adk/employee_it.json`, leaving the tracked seed unchanged.
-
-The project is licensed under Apache-2.0; see [`LICENSE`](LICENSE).
+The demo uses one fictional employee and local JSON-backed tools. It has no RAG
+pipeline, embeddings, vector database, or custom router. Submitted tickets are
+written to the ignored `.adk/employee_it.json`; run `make reset-tickets` to
+restore the seed state.
