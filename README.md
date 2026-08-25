@@ -70,37 +70,10 @@ signatures across multi-step calls.
 `VERTEX_ACCESS_TOKEN` normally expires after one hour. Generate a new value,
 update `.env`, and restart Switchyard when it expires.
 
-## Demo flow
+## Run the demo
 
-Use a fresh ADK session for each routing example. Switchyard keeps the model it
-selects for the first request throughout that conversation.
-
-### Simple request
-
-> Which laptop is assigned to me?
-
-Expected tool path: `get_my_device`. This should route to the weak model.
-
-### Complex one-turn request
-
-> My laptop will not power on and I need it for a customer presentation
-> tomorrow. Check my device and open tickets, decide whether this is a refresh
-> or incident, assign the correct priority, and prepare the request without
-> creating a duplicate.
-
-Expected tool path: `get_my_device` -> `get_my_open_tickets` ->
-`draft_it_request`. This should route to the strong model.
-
-The result should be a P2 Hardware Incident. The existing Software ticket is
-unrelated, and the draft returns `submitted: false`.
-
-Then ask:
-
-> Submit that ticket.
-
-ADK Web shows a confirmation dialog with the exact tool arguments before any
-write occurs. Approving it calls `submit_it_request`, creates a local ticket,
-and returns its ID. Run `make reset-tickets` before repeating the demo.
+See [`DEMO.md`](DEMO.md) for the tested presenter workflow, exact questions,
+expected model routes, tool calls, confirmation step, and reset instructions.
 
 ## Agent and tools
 
@@ -169,14 +142,3 @@ NVIDIA or customer data. Submitted tickets are written to the ignored runtime
 copy `.adk/employee_it.json`, leaving the tracked seed unchanged.
 
 The project is licensed under Apache-2.0; see [`LICENSE`](LICENSE).
-
-## Inspect routing
-
-Switchyard exposes request, token, tier, and latency counters:
-
-```bash
-curl -s http://127.0.0.1:4000/v1/stats | python3 -m json.tool
-```
-
-The actual tool order appears in the ADK trace. The Switchyard terminal also
-prints `classifier_signals=...` for each newly classified conversation.
