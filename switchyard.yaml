@@ -8,18 +8,27 @@ routes:
     session_affinity: true
     fallback_target_on_evict: strong
 
+    # Inference Hub accepts the classifier's strict JSON schema and
+    # Switchyard's vLLM thinking hint. Google's direct endpoint does not accept
+    # that hint with Switchyard 0.2's stock YAML classifier.
     classifier:
-      model: nvidia/zai-org/glm-5.2
+      model: gcp/google/gemini-3.6-flash
       api_key: ${INFERENCE_HUB_API}
       base_url: https://inference-api.nvidia.com/v1
       fail_open: false
 
     weak:
-      model: gemini-3.6-flash
-      api_key: ${GOOGLE_API}
-      base_url: https://generativelanguage.googleapis.com/v1beta/openai
-
-    strong:
       model: nvidia/zai-org/glm-5.2
       api_key: ${INFERENCE_HUB_API}
       base_url: https://inference-api.nvidia.com/v1
+
+    strong:
+      model: google/gemini-3.1-pro-preview
+      api_key: ${VERTEX_ACCESS_TOKEN}
+      base_url: https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT}/locations/global/endpoints/openapi
+
+    # Live-demo replacement for the strong block above:
+    # strong:
+    #   model: azure/anthropic/claude-opus-5
+    #   api_key: ${INFERENCE_HUB_API}
+    #   base_url: https://inference-api.nvidia.com/v1

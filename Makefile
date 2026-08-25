@@ -1,4 +1,4 @@
-.PHONY: setup embed switchyard chat test
+.PHONY: setup embed switchyard chat test reset-tickets
 
 setup:
 	uv sync
@@ -15,3 +15,6 @@ chat:
 
 test:
 	uv run python -m unittest discover -s tests
+
+reset-tickets:
+	rm -f .adk/employee_it.json

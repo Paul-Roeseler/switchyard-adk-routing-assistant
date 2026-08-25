@@ -19,15 +19,30 @@ class SwitchyardConfigTests(unittest.TestCase):
     def test_model_roles(self) -> None:
         route = parse_routing_profiles_file(CONFIG)["routes"]["employee-it"]
 
-        self.assertEqual(route["classifier"]["model"], "nvidia/zai-org/glm-5.2")
-        self.assertEqual(route["weak"]["model"], "gemini-3.6-flash")
-        self.assertEqual(route["strong"]["model"], "nvidia/zai-org/glm-5.2")
+        self.assertEqual(
+            route["classifier"]["model"],
+            "gcp/google/gemini-3.6-flash",
+        )
+        self.assertEqual(route["weak"]["model"], "nvidia/zai-org/glm-5.2")
+        self.assertEqual(
+            route["strong"]["model"],
+            "google/gemini-3.1-pro-preview",
+        )
+
+    def test_opus_replacement_is_documented(self) -> None:
+        config_text = CONFIG.read_text()
+
+        self.assertIn("#   model: azure/anthropic/claude-opus-5", config_text)
 
     def test_stock_route_builds(self) -> None:
         with (
             patch.dict(
                 os.environ,
-                {"GOOGLE_API": "test-google", "INFERENCE_HUB_API": "test-nvidia"},
+                {
+                    "GOOGLE_CLOUD_PROJECT": "test-project",
+                    "INFERENCE_HUB_API": "test-nvidia",
+                    "VERTEX_ACCESS_TOKEN": "test-google-token",
+                },
             ),
             patch(
                 "switchyard.cli.route_bundle._default_discovery_fn",
