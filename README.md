@@ -4,7 +4,17 @@
 [![Python 3.12–3.13](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
-A minimal Google ADK assistant that uses NVIDIA NeMo Switchyard to route simple requests to economical models and complex, tool-driven work to stronger models across configurable inference endpoints.
+A minimal [Google ADK](https://adk.dev/) assistant that uses [NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) to route simple requests to economical models and complex, tool-driven work to stronger models across configurable inference endpoints.
+
+<p align="center">
+  <a href="https://adk.dev/">
+    <img src="https://raw.githubusercontent.com/google/adk-python/main/assets/agent-development-kit.png" alt="Google Agent Development Kit" height="48">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/NVIDIA-NeMo/Switchyard">
+    <img src="https://raw.githubusercontent.com/NVIDIA-NeMo/Switchyard/main/assets/logo.png" alt="NVIDIA NeMo Switchyard" height="48">
+  </a>
+</p>
 
 ## Architecture
 
@@ -55,19 +65,6 @@ weak:
   format: openai  # optional target-level override
 ```
 
-The stock `general` profile sends `MEDIUM`, `COMPLEX`, `REASONING`,
-low-confidence, and abstained classifications to `strong`. Set `format`
-globally or per generation target to `openai`, `responses`, `anthropic`, or
-`auto`; generation models must support this agent's tool calls.
-
-The classifier must accept OpenAI Chat Completions with strict JSON-schema
-output. Keep the route name `employee-it` unless you also change
-`model="openai/employee-it"` in
-[`employee_it_agent/agent.py`](employee_it_agent/agent.py).
-
-The checked-in Gemini Flash, GLM-5.2, and Gemini Pro endpoints are one example;
-replace any or all three role blocks to use other providers.
-
 ### 2. Configure credentials
 
 Copy the environment template:
@@ -77,8 +74,7 @@ cp .env.example .env
 ```
 
 Every `${VARIABLE}` referenced by `switchyard.yaml` must have a non-empty value
-in `.env`. The variable names are yours to choose, and one credential can be
-shared by multiple roles. Do not put secrets directly in the tracked YAML.
+in `.env`.
 
 The checked-in configuration expects:
 
@@ -87,12 +83,6 @@ INFERENCE_HUB_API=your-nvidia-key
 VERTEX_ACCESS_TOKEN=your-short-lived-google-token
 GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 ```
-
-These Google Cloud values are required only by the checked-in Vertex strong
-target. If you replace that block, replace its `${...}` references and the
-corresponding `.env` entries. For the current Vertex target, generate the token
-with `gcloud auth application-default print-access-token` and restart
-Switchyard after refreshing it.
 
 ### 3. Install and run
 
@@ -111,15 +101,11 @@ make switchyard
 make chat
 ```
 
-Open `http://127.0.0.1:8000` and select `employee_it_agent`. Both servers bind
-to localhost and are intended for local demonstration only.
-
 ## Demo
 
 [`DEMO.md`](DEMO.md) contains the tested presenter workflow, example prompts,
 expected routes, tool calls, and confirmation step.
 
-The demo uses one fictional employee and local JSON-backed tools. It has no RAG
-pipeline, embeddings, vector database, or custom router. Submitted tickets are
+The demo uses one fictional employee and local JSON-backed tools. Submitted tickets are
 written to the ignored `.adk/employee_it.json`; run `make reset-tickets` to
 restore the seed state.
