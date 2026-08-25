@@ -6,16 +6,6 @@
 
 A minimal [Google ADK](https://adk.dev/) assistant that uses [NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) to route simple requests to economical models and complex, tool-driven work to stronger models across configurable inference endpoints.
 
-<p align="center">
-  <a href="https://adk.dev/">
-    <img src="https://raw.githubusercontent.com/google/adk-python/main/assets/agent-development-kit.png" alt="Google Agent Development Kit" height="48">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/NVIDIA-NeMo/Switchyard">
-    <img src="https://raw.githubusercontent.com/NVIDIA-NeMo/Switchyard/main/assets/logo.png" alt="NVIDIA NeMo Switchyard" height="48">
-  </a>
-</p>
-
 ## Architecture
 
 ```text
