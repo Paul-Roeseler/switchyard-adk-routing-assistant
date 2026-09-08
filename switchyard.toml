@@ -1,0 +1,77 @@
+schema_version = 1
+
+[llm_clients.nvidia]
+format = "openai_chat"
+base_url = "https://inference-api.nvidia.com/v1"
+api_key_env = "INFERENCE_HUB_API"
+max_retries = 0
+
+[llm_clients.google]
+format = "openai_chat"
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+api_key_env = "GOOGLE_API"
+max_retries = 0
+
+[targets.simple]
+id = "nvidia/meta/llama-3.1-8b-instruct"
+llm_client = "nvidia"
+
+[targets.medium]
+id = "nvidia/zai-org/glm-5.2"
+llm_client = "nvidia"
+extra_body = { chat_template_kwargs = { enable_thinking = false } }
+
+[targets.complex]
+id = "gemini-3.6-flash"
+llm_client = "google"
+
+[targets.reasoning]
+id = "gemini-3.1-pro-preview"
+llm_client = "google"
+
+[routes.employee_it]
+id = "employee-it"
+type = "llm_classifier"
+mode = "custom"
+classifier_target = "medium"
+targets = ["reasoning", "complex", "medium", "simple"]
+default_target = "reasoning"
+session_affinity = true
+message_hash_fallback = true
+max_output_tokens = 256
+prompt = """
+Choose the least-capable target that can reliably complete the whole
+employee-IT request.
+
+- simple: A direct answer or one straightforward policy lookup.
+- medium: Routine synthesis across policy and employee or device data.
+- complex: A dependent multi-tool workflow, ticket check, or request draft.
+- reasoning: Ambiguous or conflicting policy, exceptions, high risk, or deep analysis.
+
+Judge the work required by the request, not every tool the agent could use.
+When uncertain, choose reasoning. Return only JSON matching the response schema.
+"""
+response_schema = '''
+{
+  "type": "object",
+  "properties": {
+    "decision": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": ["simple", "medium", "complex", "reasoning"]
+        }
+      },
+      "required": ["target"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["decision"],
+  "additionalProperties": false
+}
+'''
+
+[routes.employee_it.policy]
+type = "target_selector"
+selector = "/decision/target"
