@@ -23,4 +23,4 @@ chat:
 	uv run --env-file .env adk web --port 8000 --session_service_uri sqlite:///.adk/sessions.db .
 
 test: check-switchyard-version
-	INFERENCE_HUB_API=test GOOGLE_API=test $(SWITCHYARD_SERVER) --config switchyard.toml --dry-run
+	INFERENCE_HUB_API=test VERTEX_ACCESS_TOKEN=test $(SWITCHYARD_SERVER) --config switchyard.toml --dry-run

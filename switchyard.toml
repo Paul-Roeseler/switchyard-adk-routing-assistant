@@ -6,10 +6,10 @@ base_url = "https://inference-api.nvidia.com/v1"
 api_key_env = "INFERENCE_HUB_API"
 max_retries = 0
 
-[llm_clients.google]
+[llm_clients.vertex]
 format = "openai_chat"
-base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
-api_key_env = "GOOGLE_API"
+base_url = "https://aiplatform.googleapis.com/v1/projects/model-routing-505414/locations/global/endpoints/openapi"
+api_key_env = "VERTEX_ACCESS_TOKEN"
 max_retries = 0
 
 [targets.simple]
@@ -22,12 +22,12 @@ llm_client = "nvidia"
 extra_body = { chat_template_kwargs = { enable_thinking = false } }
 
 [targets.complex]
-id = "gemini-3.6-flash"
-llm_client = "google"
+id = "google/gemini-3.6-flash"
+llm_client = "vertex"
 
 [targets.reasoning]
-id = "gemini-3.1-pro-preview"
-llm_client = "google"
+id = "google/gemini-3.1-pro-preview"
+llm_client = "vertex"
 
 [routes.employee_it]
 id = "employee-it"

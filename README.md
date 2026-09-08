@@ -30,20 +30,27 @@ OpenAI-compatible endpoint directly.
 
 You need Python 3.12 or 3.13, `uv`, Rust/Cargo 1.96.1 or newer, and the Google
 Cloud CLI. Vertex embeddings use Application Default Credentials. Model
-generation uses the Google and NVIDIA API keys in `.env`.
+generation uses a short-lived Vertex OAuth token and the NVIDIA API key in
+`.env`.
 
 ```bash
-gcloud config set project YOUR_GCP_PROJECT_ID
+gcloud config set project model-routing-505414
 gcloud auth application-default login
-gcloud auth application-default set-quota-project YOUR_GCP_PROJECT_ID
+gcloud auth application-default set-quota-project model-routing-505414
 
 cp .env.example .env  # only when .env does not already exist
-# Add GOOGLE_API and INFERENCE_HUB_API to .env.
+# Add VERTEX_ACCESS_TOKEN and INFERENCE_HUB_API to .env.
+# Generate the Vertex token immediately before the demo and paste it into .env:
+gcloud auth application-default print-access-token
 
 make setup             # installs Python deps and switchyard-server 0.2.0
 make embed             # creates or rebuilds the local document index
 make test              # validates switchyard.toml without calling a provider
 ```
+
+The Vertex token normally expires after one hour. Replace
+`VERTEX_ACCESS_TOKEN` in `.env` and restart Switchyard if Vertex returns HTTP
+401.
 
 The first `make setup` compiles the pinned Switchyard server and can take a few
 minutes. It installs the binary under the ignored `.adk/` directory, not
@@ -126,6 +133,9 @@ native `mode = "custom"` route uses GLM-5.2 as both the classifier and the
 medium target, then validates a single selected label against a JSON Schema.
 The selector maps that label directly to one of four configured targets. The
 short domain rubric in this file is the only project-specific routing policy.
+Both Gemini targets use Vertex AI's OpenAI-compatible endpoint directly.
+The checked-in endpoint and embedding configuration use the demo project
+`model-routing-505414`.
 
 If the first classification fails or returns an invalid label, `default_target`
 sends the request to `reasoning`, and affinity retains that decision. The target
