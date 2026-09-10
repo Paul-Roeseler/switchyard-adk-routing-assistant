@@ -6,6 +6,12 @@ base_url = "https://inference-api.nvidia.com/v1"
 api_key_env = "INFERENCE_HUB_API"
 max_retries = 0
 
+[llm_clients.nebius]
+format = "openai_chat"
+base_url = "https://api.tokenfactory.us-central1.nebius.com/v1/"
+api_key_env = "NEBIUS_API_KEY"
+max_retries = 0
+
 [llm_clients.vertex]
 format = "openai_chat"
 base_url = "https://aiplatform.googleapis.com/v1/projects/model-routing-505414/locations/global/endpoints/openapi"
@@ -13,32 +19,37 @@ api_key_env = "VERTEX_ACCESS_TOKEN"
 max_retries = 0
 
 [targets.simple]
-id = "nvidia/meta/llama-3.1-8b-instruct"
+id = "nvidia/qwen/qwen3.8-27b"
 llm_client = "nvidia"
 
-[targets.medium]
-id = "nvidia/zai-org/glm-5.2"
+[targets.classifier]
+id = "nvidia/nvidia/nemotron-3.5-lightning"
 llm_client = "nvidia"
 extra_body = { chat_template_kwargs = { enable_thinking = false } }
 
+[targets.medium]
+id = "zai-org/GLM-5.3-Flash"
+llm_client = "nebius"
+
 [targets.complex]
-id = "google/gemini-3.6-flash"
+id = "google/gemini-3.8-flash"
 llm_client = "vertex"
+extra_body = { reasoning_effort = "medium" }
 
 [targets.reasoning]
-id = "google/gemini-3.1-pro-preview"
+id = "google/gemini-3.1-pro-preview-customtools"
 llm_client = "vertex"
+extra_body = { reasoning_effort = "high" }
 
 [routes.employee_it]
 id = "employee-it"
 type = "llm_classifier"
 mode = "custom"
-classifier_target = "medium"
+classifier_target = "classifier"
 targets = ["reasoning", "complex", "medium", "simple"]
 default_target = "reasoning"
 session_affinity = true
 message_hash_fallback = true
-max_output_tokens = 256
 prompt = """
 Choose the least-capable target that can reliably complete the whole
 employee-IT request.
