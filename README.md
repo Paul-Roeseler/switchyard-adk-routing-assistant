@@ -4,9 +4,7 @@
 [![Python 3.12–3.13](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
-![Four-tier model routing demo](docs/assets/four-tier-routing-demo.gif)
-
-A minimal [Google ADK](https://adk.dev/) assistant that uses [NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) to route employee IT requests across four capability tiers and configurable inference endpoints.
+A minimal [Google ADK](https://adk.dev/) assistant that uses [NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) to route employee IT requests across four model tiers without changing the agent or its tools.
 
 ## Architecture
 
@@ -23,16 +21,20 @@ ADK Web + SQLite session history
         |                                |-- complex ----> Gemini 3.8 Flash
         |                                `-- reasoning --> Gemini 3.1 Pro Custom Tools
         |
-        +-- search_it_kb --------------------------> Vertex AI + local index
         +-- get_my_device -------------------------> local demo JSON
         +-- get_my_open_tickets -------------------> local demo JSON
-        `-- draft_it_request ----------------------> preview only
+        +-- draft_it_request ----------------------> preview only
+        `-- submit_it_request --> ADK confirmation --> local ticket store
 ```
 
-Google ADK owns the agent, tool loop, and conversation history. Switchyard owns
-request classification and outbound model selection. The agent always calls
-the same local route, so changing providers does not change the agent or its
-tools.
+Google ADK owns the agent, tool loop, confirmation, and conversation history.
+Switchyard owns request classification and outbound model selection. The agent
+always calls the same local route, so changing providers does not change the
+agent or its tools.
+
+The IT policy is included directly in the demo agent instructions. Employee,
+device, and ticket data are local JSON; no knowledge index or embedding setup
+is required.
 
 ## Setup
 
@@ -42,11 +44,11 @@ endpoints.
 
 ### 1. Configure Switchyard
 
-Edit [`switchyard.toml`](switchyard.toml) to configure the four serving targets:
+[`switchyard.toml`](switchyard.toml) defines the four generation targets:
 
 | Target | Model | Purpose |
 | --- | --- | --- |
-| `simple` | Qwen3.8 27B | Direct answers and one policy lookup |
+| `simple` | Qwen3.8 27B | Direct answers and straightforward policy questions |
 | `medium` | GLM-5.3 Flash | Routine synthesis across policy and employee data |
 | `complex` | Gemini 3.8 Flash | Dependent multi-tool workflows |
 | `reasoning` | Gemini 3.1 Pro Preview Custom Tools | Ambiguous, conflicting, or high-risk requests |
@@ -62,7 +64,7 @@ Copy the environment template:
 cp .env.example .env
 ```
 
-The checked-in configuration expects:
+The checked-in router expects:
 
 ```dotenv
 INFERENCE_HUB_API=your-nvidia-key
@@ -70,17 +72,14 @@ NEBIUS_API_KEY=your-nebius-key
 VERTEX_ACCESS_TOKEN=your-short-lived-google-token
 ```
 
-`VERTEX_ACCESS_TOKEN` authenticates both Gemini generation and Vertex
-embeddings. Generate it with
-`gcloud auth application-default print-access-token`. The checked-in
-configuration targets project `model-routing-505414` in location `global`, so
-no additional Google Cloud environment variables are required.
+Generate the Vertex token with
+`gcloud auth application-default print-access-token`. The Vertex project and
+location are already configured in `switchyard.toml`.
 
 ### 3. Install and run
 
 ```bash
 make setup
-make embed
 make test
 ```
 
@@ -98,7 +97,9 @@ Open `http://127.0.0.1:8000` and select `employee_it_agent`.
 
 ## Demo
 
-Use a fresh ADK session for each simple, medium, complex, and reasoning example.
-The demo uses one fictional employee, a local document index, and local
-JSON-backed tools. `draft_it_request` creates a preview only and does not submit
-anything.
+[`DEMO.md`](DEMO.md) contains the presenter workflow, example prompts, expected
+routes, tool calls, and confirmation step.
+
+The demo uses one fictional employee and local JSON-backed tools. Submitted
+tickets are written to the ignored `.adk/employee_it.json`; run
+`make reset-tickets` to restore the seed state.
