@@ -68,13 +68,13 @@ The checked-in configuration expects:
 INFERENCE_HUB_API=your-nvidia-key
 NEBIUS_API_KEY=your-nebius-key
 VERTEX_ACCESS_TOKEN=your-short-lived-google-token
-GOOGLE_CLOUD_PROJECT=model-routing-505414
-GOOGLE_CLOUD_LOCATION=global
 ```
 
-`VERTEX_ACCESS_TOKEN` authenticates Gemini generation. Vertex embeddings use
-Application Default Credentials; if ADC is already configured, no Google Cloud
-login command is needed.
+`VERTEX_ACCESS_TOKEN` authenticates both Gemini generation and Vertex
+embeddings. Generate it with
+`gcloud auth application-default print-access-token`. The checked-in
+configuration targets project `model-routing-505414` in location `global`, so
+no additional Google Cloud environment variables are required.
 
 ### 3. Install and run
 

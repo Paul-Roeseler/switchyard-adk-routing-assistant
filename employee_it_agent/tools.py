@@ -6,11 +6,13 @@ from pathlib import Path
 
 from google import genai
 from google.genai import types
+from google.oauth2.credentials import Credentials
 
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "data" / "embeddings.json"
 STATE_PATH = ROOT / "data" / "employee_it.json"
+VERTEX_PROJECT = "model-routing-505414"
 
 
 def _read_json(path: Path) -> dict:
@@ -30,7 +32,8 @@ def search_it_kb(query: str) -> dict:
     embedding_config = index["embedding"]
     client = genai.Client(
         vertexai=True,
-        project=os.environ["GOOGLE_CLOUD_PROJECT"],
+        credentials=Credentials(os.environ["VERTEX_ACCESS_TOKEN"]),
+        project=VERTEX_PROJECT,
         location=embedding_config["location"],
         http_options=types.HttpOptions(api_version="v1"),
     )

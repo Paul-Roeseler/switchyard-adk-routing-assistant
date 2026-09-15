@@ -8,6 +8,7 @@ from pathlib import Path
 
 from google import genai
 from google.genai import types
+from google.oauth2.credentials import Credentials
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +19,8 @@ SOURCE_REPOSITORY = "https://github.com/brevdev/workshop-build-an-agent"
 SOURCE_REVISION = "ac389a0ce6452d4b69af73f75806543fdc652b95"
 MODEL = "gemini-embedding-2"
 DIMENSIONS = 768
+PROJECT = "model-routing-505414"
+LOCATION = "global"
 
 
 def slugify(value: str) -> str:
@@ -66,9 +69,6 @@ def chunk_document(path: Path) -> tuple[dict[str, str], list[dict[str, str]]]:
 
 
 def main() -> None:
-    project = os.environ["GOOGLE_CLOUD_PROJECT"]
-    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
-
     documents: list[dict[str, str]] = []
     chunks: list[dict[str, object]] = []
     for name in DOCUMENT_NAMES:
@@ -78,8 +78,9 @@ def main() -> None:
 
     client = genai.Client(
         vertexai=True,
-        project=project,
-        location=location,
+        credentials=Credentials(os.environ["VERTEX_ACCESS_TOKEN"]),
+        project=PROJECT,
+        location=LOCATION,
         http_options=types.HttpOptions(api_version="v1"),
     )
 
@@ -109,7 +110,7 @@ def main() -> None:
         "embedding": {
             "provider": "Google Cloud Vertex AI",
             "model": MODEL,
-            "location": location,
+            "location": LOCATION,
             "dimensions": DIMENSIONS,
             "normalized": True,
             "document_input": "title: {title} | text: {text}",
