@@ -42,6 +42,13 @@ class SwitchyardConfigTests(unittest.TestCase):
         self.assertEqual(clients["nebius"]["api_key_env"], "NEBIUS_API_KEY")
         self.assertEqual(clients["vertex"]["api_key_env"], "VERTEX_ACCESS_TOKEN")
 
+    def test_classifier_prompt_covers_the_operational_demo_request(self) -> None:
+        prompt = self.config["routes"]["employee_it"]["prompt"]
+
+        self.assertIn("My laptop will not turn on", prompt)
+        self.assertIn("morning. Can you help?\" -> complex", prompt)
+        self.assertIn("Infer the operational work implied", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

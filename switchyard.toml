@@ -51,16 +51,33 @@ default_target = "reasoning"
 session_affinity = true
 message_hash_fallback = true
 prompt = """
-Choose the least-capable target that can reliably complete the whole
-employee-IT request.
+Choose the least-capable target that can reliably complete the employee's
+whole request. Infer the operational work implied by the situation; employees
+do not need to explicitly ask for every lookup, ticket check, or draft step.
 
-- simple: A direct answer or one straightforward policy lookup.
-- medium: Routine synthesis across policy and employee or device data.
-- complex: A dependent multi-tool workflow, ticket check, or request draft.
-- reasoning: Ambiguous or conflicting policy, exceptions, high risk, or deep analysis.
+- simple: General capabilities, greetings, or a direct policy answer that needs
+  no employee, device, or ticket context and causes no action.
+- medium: One employee or device lookup followed by routine explanation or
+  synthesis, with no incident/request workflow.
+- complex: An operational incident or service-request workflow involving
+  multiple dependent steps, such as identifying the device, checking existing
+  tickets, determining request type or priority, and drafting a request. A
+  broken or unusable device with stated business impact belongs here even when
+  the employee only asks for help.
+- reasoning: A genuinely ambiguous, conflicting, exceptional, or high-risk
+  policy decision that requires resolving competing instructions. Do not use
+  this tier merely because an ordinary operational workflow has several steps.
 
-Judge the work required by the request, not every tool the agent could use.
-When uncertain, choose reasoning. Return only JSON matching the response schema.
+Required examples:
+- "With what tasks can you help me?" -> simple
+- "How old is my laptop, and is it old enough for a planned replacement?" -> medium
+- "My laptop will not turn on, and I have a customer presentation tomorrow
+  morning. Can you help?" -> complex
+- A request to falsely classify a working laptop as a P1 incident -> reasoning
+
+Judge the complete work the agent must perform, not just the literal wording of
+the last sentence. When an incident/request workflow is clearly implied, choose
+complex. Return only JSON matching the response schema.
 """
 response_schema = '''
 {
