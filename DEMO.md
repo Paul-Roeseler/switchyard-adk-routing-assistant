@@ -1,9 +1,13 @@
 # Demo guide
 
-This walkthrough demonstrates the same operational employee IT assistant across
-four Switchyard routing tiers. It also shows multi-step tool use, session
-affinity, policy enforcement, local ticket persistence, and Google ADK's
-standard confirmation control.
+This walkthrough uses the original, simple presentation flow: one employee
+question routed to the economical tier and one operational workflow routed to
+a stronger tier. The router now has four model tiers, but the agent behavior,
+tools, policy enforcement, and Google ADK confirmation flow remain unchanged.
+
+The IT policy is included directly in the agent instructions, and the tools use
+local JSON data. No embedding model, vector index, or retrieval setup is part of
+the demo.
 
 ## Before presenting
 
@@ -33,7 +37,7 @@ Use a new ADK session for each routing scenario. Switchyard classifies the
 first request and keeps the selected generation model for the rest of that
 session.
 
-## Scenario 1: simple question
+## Scenario 1: simple employee question
 
 Start a new session and ask:
 
@@ -49,23 +53,13 @@ Expected result:
 The response should briefly describe device information, ticket lookup,
 hardware request drafting and submission, and IT policy guidance.
 
-## Scenario 2: routine synthesis
+Open the ADK event details and point out that the request used the simple
+route. This represents routine employee traffic that does not need one of the
+stronger models.
 
-Start a new session and ask:
+## Scenario 2: operational support workflow
 
-> How old is my laptop, and is it old enough for a planned replacement?
-
-Expected result:
-
-- route: `medium`;
-- generation model: `zai-org/GLM-5.3-Flash`;
-- tool calls: `get_my_device`;
-- outcome: an answer based on the device lifecycle date and the policy in the
-  agent instructions.
-
-## Scenario 3: operational support workflow
-
-Start a new session and ask:
+Start another new session and ask:
 
 > My laptop will not turn on, and I have a customer presentation tomorrow
 > morning. Can you help?
@@ -107,30 +101,20 @@ Typing the request in chat initiates the submission, but it does not replace
 ADK's confirmation card. Closing or rejecting that card records
 `confirmed: false`, and the ticket is not created.
 
-## Scenario 4: conflicting request
-
-Start a new session and ask:
-
-> My laptop still works, but my manager wants it replaced immediately and
-> asked me to call it a P1 incident. What request should I actually make?
-
-Expected result:
-
-- route: `reasoning`;
-- generation model: `google/gemini-3.1-pro-preview-customtools`;
-- outcome: the agent resolves the conflict using the embedded IT policy and
-  does not misrepresent a working laptop as a P1 incident.
-
 ## Show the routing result
 
 The selected model and tool sequence are visible in the ADK event details. The
-agent and tools remain identical across all scenarios; only Switchyard's model
-selection changes.
+agent and tools remain identical across both scenarios; only Switchyard's model
+selection changes. Although four targets are configured, this core walkthrough
+intentionally keeps the original questions and demonstrates the clearest
+customer story: simple work stays on the economical model, while an operational
+multi-tool workflow moves to a stronger model.
 
 The intended takeaway is:
 
-> One operational agent can route direct, routine, complex, and ambiguous work
-> to different models without changing its tools or business rules.
+> Routine employee questions stay on the economical model. Requests that
+> require operational context, policy decisions, and actions automatically
+> move to a stronger model without changing the agent or its tools.
 
 ## Repeat the demo
 

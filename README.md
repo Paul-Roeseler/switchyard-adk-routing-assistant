@@ -4,6 +4,8 @@
 [![Python 3.12–3.13](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
+![Four-tier model routing demo](docs/assets/four-tier-routing-demo.gif)
+
 A minimal [Google ADK](https://adk.dev/) assistant that uses [NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) to route employee IT requests across four model tiers without changing the agent or its tools.
 
 ## Architecture
@@ -35,6 +37,9 @@ agent or its tools.
 The IT policy is included directly in the demo agent instructions. Employee,
 device, and ticket data are local JSON; no knowledge index or embedding setup
 is required.
+
+The agent keeps the original operational behavior and demo questions. The only
+architectural expansion is Switchyard's four-tier model router.
 
 ## Setup
 
@@ -97,8 +102,8 @@ Open `http://127.0.0.1:8000` and select `employee_it_agent`.
 
 ## Demo
 
-[`DEMO.md`](DEMO.md) contains the presenter workflow, example prompts, expected
-routes, tool calls, and confirmation step.
+[`DEMO.md`](DEMO.md) contains the original presenter questions, updated
+four-tier route expectations, tool calls, and confirmation step.
 
 The demo uses one fictional employee and local JSON-backed tools. Submitted
 tickets are written to the ignored `.adk/employee_it.json`; run
