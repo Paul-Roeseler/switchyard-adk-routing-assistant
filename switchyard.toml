@@ -1,14 +1,8 @@
 schema_version = 1
 
-[llm_clients.nvidia]
-format = "openai_chat"
-base_url = "https://inference-api.nvidia.com/v1"
-api_key_env = "INFERENCE_HUB_API"
-max_retries = 0
-
 [llm_clients.nebius]
 format = "openai_chat"
-base_url = "https://api.tokenfactory.us-central1.nebius.com/v1/"
+base_url = "https://api.tokenfactory.nebius.com/v1/"
 api_key_env = "NEBIUS_API_KEY"
 max_retries = 0
 
@@ -18,18 +12,18 @@ base_url = "https://aiplatform.googleapis.com/v1/projects/model-routing-505414/l
 api_key_env = "VERTEX_ACCESS_TOKEN"
 max_retries = 0
 
-[targets.simple]
-id = "nvidia/qwen/qwen3.8-27b"
-llm_client = "nvidia"
-
 [targets.classifier]
-id = "nvidia/nvidia/nemotron-3.5-lightning"
-llm_client = "nvidia"
-extra_body = { chat_template_kwargs = { enable_thinking = false } }
+id = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+llm_client = "nebius"
+
+[targets.simple]
+id = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+llm_client = "nebius"
 
 [targets.medium]
 id = "zai-org/GLM-5.3-Flash"
 llm_client = "nebius"
+extra_body = { reasoning_effort = "low" }
 
 [targets.complex]
 id = "google/gemini-3.8-flash"
@@ -47,7 +41,7 @@ type = "llm_classifier"
 mode = "custom"
 classifier_target = "classifier"
 targets = ["reasoning", "complex", "medium", "simple"]
-default_target = "reasoning"
+default_target = "complex"
 session_affinity = true
 message_hash_fallback = true
 prompt = """
@@ -82,24 +76,17 @@ complex. Return only JSON matching the response schema.
 response_schema = '''
 {
   "type": "object",
+  "additionalProperties": false,
+  "required": ["target"],
   "properties": {
-    "decision": {
-      "type": "object",
-      "properties": {
-        "target": {
-          "type": "string",
-          "enum": ["simple", "medium", "complex", "reasoning"]
-        }
-      },
-      "required": ["target"],
-      "additionalProperties": false
+    "target": {
+      "type": "string",
+      "enum": ["simple", "medium", "complex", "reasoning"]
     }
-  },
-  "required": ["decision"],
-  "additionalProperties": false
+  }
 }
 '''
 
 [routes.employee_it.policy]
 type = "target_selector"
-selector = "/decision/target"
+selector = "/target"

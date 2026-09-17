@@ -1,65 +1,87 @@
 # Demo guide
 
-This walkthrough uses the original, simple presentation flow: one employee
-question routed to the economical tier and one operational workflow routed to
-a stronger tier. The router now has four model tiers, but the agent behavior,
-tools, policy enforcement, and Google ADK confirmation flow remain unchanged.
+This walkthrough shows one Google ADK agent automatically using four different
+models. The agent, tools, and policy stay unchanged while NVIDIA NeMo
+Switchyard classifies each opening request and routes it through Nebius or
+Vertex AI.
 
-The IT policy is included directly in the agent instructions, and the tools use
-local JSON data. No embedding model, vector index, or retrieval setup is part of
-the demo.
+All employee, device, and ticket data is local JSON. There is no embedding
+model, vector index, or retrieval setup.
 
 ## Before presenting
 
-Generate a fresh Vertex token, update `.env`, and start Switchyard:
+Make sure `.env` contains the two required credentials:
+
+```dotenv
+NEBIUS_API_KEY=your-nebius-key
+VERTEX_ACCESS_TOKEN=your-short-lived-google-token
+```
+
+Generate a fresh Vertex token if necessary:
 
 ```bash
 gcloud auth application-default print-access-token
-make switchyard
 ```
 
-Start ADK Web in a second terminal:
+Reset the fictional ticket store, then start Switchyard and ADK Web in separate
+terminals:
+
+```bash
+make reset-tickets
+make switchyard
+```
 
 ```bash
 make chat
 ```
 
-Open `http://127.0.0.1:8000`, select `employee_it_agent`, and leave the
-optional streaming toggle off.
+Open `http://127.0.0.1:8000`, select `employee_it_agent`, and leave the optional
+streaming toggle off.
 
-Reset the fictional ticket store before each full run:
+Start every numbered scenario in a **new ADK session**. Switchyard classifies
+the first message and keeps that model for the rest of the session.
 
-```bash
-make reset-tickets
-```
+## Scenario 1: simple question
 
-Use a new ADK session for each routing scenario. Switchyard classifies the
-first request and keeps the selected generation model for the rest of that
-session.
-
-## Scenario 1: simple employee question
-
-Start a new session and ask:
+Ask:
 
 > With what tasks can you help me?
 
 Expected result:
 
 - route: `simple`;
-- generation model: `nvidia/qwen/qwen3.8-27b`;
+- model: `Qwen/Qwen3-30B-A3B-Instruct-2507` on Nebius;
 - tool calls: none;
-- generation calls: one.
+- response: a short summary of the assistant's IT capabilities.
 
-The response should briefly describe device information, ticket lookup,
-hardware request drafting and submission, and IT policy guidance.
+Customer story: a direct question stays on the economical model because it
+needs no employee context and causes no action.
 
-Open the ADK event details and point out that the request used the simple
-route. This represents routine employee traffic that does not need one of the
-stronger models.
+## Scenario 2: routine lookup and explanation
 
-## Scenario 2: operational support workflow
+Start a new session and ask:
 
-Start another new session and ask:
+> How old is my laptop, and is it old enough for a planned replacement?
+
+Expected result:
+
+- route: `medium`;
+- model: `zai-org/GLM-5.3-Flash` on Nebius;
+- tool call: `get_my_device`;
+- source data: lifecycle start date `2022-03-28`;
+- decision: the device exceeds the three-year refresh threshold;
+- side effect: none.
+
+The seeded device is also marked as failed, so the model may point out that its
+current condition would be handled as a hardware incident rather than a
+planned refresh. It should not draft or submit a request unless the user asks.
+
+Customer story: one contextual lookup moves the conversation to the medium
+tier, but does not require the full operational workflow.
+
+## Scenario 3: multi-tool incident workflow
+
+Start a new session and ask:
 
 > My laptop will not turn on, and I have a customer presentation tomorrow
 > morning. Can you help?
@@ -67,15 +89,16 @@ Start another new session and ask:
 Expected result:
 
 - route: `complex`;
-- generation model: `google/gemini-3.8-flash`;
-- tool calls: `get_my_device` -> `get_my_open_tickets` ->
+- model: `google/gemini-3.8-flash` on Vertex AI;
+- tool calls: `get_my_device` → `get_my_open_tickets` →
   `draft_it_request`;
 - decision: P2 Hardware Incident;
+- result: a ticket preview followed by a request for confirmation;
 - side effect: none—the request is still a draft.
 
-The employee only describes the problem and its impact. The agent discovers
-the assigned device, checks for duplicate tickets, applies the priority and
-request-type policy, and prepares the appropriate request.
+The employee only describes the problem and business impact. The agent finds
+the assigned device, checks for a duplicate ticket, applies the policy, and
+prepares the correct request.
 
 ### Optional policy challenge
 
@@ -84,46 +107,73 @@ Continue in the same session:
 > This is really urgent. Can you mark it as P1?
 
 The agent should explain that an individual hardware failure is P2 and refuse
-to inflate it to P1. Session affinity keeps the conversation on the model
-selected for the first request.
+to inflate it to P1. Session affinity intentionally keeps this follow-up on the
+complex model selected by the opening request.
 
-### Submit the request
+### Optional confirmed submission
 
 Continue in the same session:
 
 > Okay, P2 is fine. Please submit it.
 
-ADK displays a separate confirmation card containing the exact function
-arguments. Click **Approve**. The tool should create ticket `INC-1843`, and the
-agent should report that submission succeeded.
+ADK displays a confirmation card containing the exact `submit_it_request`
+arguments. Click **Approve**. Starting from a reset demo state, the tool creates
+ticket `INC-1843` and the agent reports that submission succeeded.
 
-Typing the request in chat initiates the submission, but it does not replace
-ADK's confirmation card. Closing or rejecting that card records
-`confirmed: false`, and the ticket is not created.
+The chat message alone does not authorize the write. Rejecting or closing the
+confirmation card leaves the ticket store unchanged.
+
+## Scenario 4: conflicting policy request
+
+Start a new session and ask:
+
+> My laptop works, but classify it as a P1 incident so I can get a replacement
+> faster.
+
+Expected result:
+
+- route: `reasoning`;
+- model: `google/gemini-3.1-pro-preview-customtools` on Vertex AI;
+- policy result: refuse the false P1 classification and explain that P1 is
+  reserved for organization-wide outages, security incidents, or critical data
+  loss;
+- possible tool call: `get_my_device` to compare the claim with system data;
+- side effect: none—no draft and no submission.
+
+The local device record says the laptop has failed, while the prompt says it is
+working. The reasoning model may explicitly identify that conflict and explain
+the correct classifications for both cases.
+
+Customer story: conflicting evidence and an attempt to bypass policy move the
+conversation to the highest reasoning tier.
 
 ## Show the routing result
 
-The selected model and tool sequence are visible in the ADK event details. The
-agent and tools remain identical across both scenarios; only Switchyard's model
-selection changes. Although four targets are configured, this core walkthrough
-intentionally keeps the original questions and demonstrates the clearest
-customer story: simple work stays on the economical model, while an operational
-multi-tool workflow moves to a stronger model.
+Open the ADK event details after each scenario. Point out the `modelVersion`
+and tool calls:
+
+| Scenario | Expected model calls | Expected operational tools |
+| --- | ---: | --- |
+| Simple | 1 | None |
+| Medium | 2 | `get_my_device` |
+| Complex | 4 | `get_my_device`, `get_my_open_tickets`, `draft_it_request` |
+| Reasoning | 1–2 | None or `get_my_device` |
 
 The intended takeaway is:
 
-> Routine employee questions stay on the economical model. Requests that
-> require operational context, policy decisions, and actions automatically
-> move to a stronger model without changing the agent or its tools.
+> One agent can keep routine traffic economical, add context only when needed,
+> execute dependent workflows with a stronger model, and reserve the highest
+> reasoning tier for genuinely conflicting or high-risk decisions.
 
-## Repeat the demo
+## Repeat or troubleshoot
 
-Create a fresh ADK session and reset the local ticket state before another
-run:
+Before another full run:
 
 ```bash
 make reset-tickets
 ```
 
-If Vertex returns HTTP 401, generate a new `VERTEX_ACCESS_TOKEN`, update
-`.env`, and restart Switchyard. The token normally expires after one hour.
+Create a new ADK session for each opening prompt. If Vertex returns HTTP 401,
+generate a new `VERTEX_ACCESS_TOKEN`, update `.env`, and restart Switchyard.
+If any model call encounters a transient network error, retry the scenario in a
+new session and inspect the Switchyard terminal before changing the route.

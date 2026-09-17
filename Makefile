@@ -20,7 +20,7 @@ chat:
 	uv run --env-file .env adk web --port 8000 --session_service_uri sqlite:///.adk/sessions.db .
 
 test: check-switchyard-version
-	INFERENCE_HUB_API=test NEBIUS_API_KEY=test VERTEX_ACCESS_TOKEN=test $(SWITCHYARD_SERVER) --config switchyard.toml --dry-run
+	NEBIUS_API_KEY=test VERTEX_ACCESS_TOKEN=test $(SWITCHYARD_SERVER) --config switchyard.toml --dry-run
 	uv run --no-sync python -m unittest discover -s tests
 
 reset-tickets:
